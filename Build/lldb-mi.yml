@@ -1,6 +1,6 @@
 variables:
   llvm_repo: https://github.com/llvm/llvm-project.git
-  llvm_branch: tags/llvmorg-9.0.1
+  llvm_branch: release/10.x
   llvm_build_type: Release
   llvm_arch: x86_64
   llvm_additional_parameters: "-DLLDB_RELOCATABLE_PYTHON=1 -DLLDB_INCLUDE_TESTS=OFF -DLLDB_BUILD_FRAMEWORK=1"
@@ -57,6 +57,15 @@ jobs:
         fi
 
         echo "##[command] ninja install"
+        ninja install || true # this install will fail.
+
+        # Workaround to build lldb/sources/API first
+        echo "##[command] rm -rf $(Build.StagingDirectory)/buildspace/llvm-inst/Library/Frameworks/LLDB.framework"
+        rm -rf $(Build.StagingDirectory)/buildspace/llvm-inst/Library/Frameworks/LLDB.framework
+
+        echo "##[command] cmake -P tools/lldb/source/API/cmake_install.cmake"
+        cmake -P tools/lldb/source/API/cmake_install.cmake
+
         ninja install
         if [[ $? -ne 0 ]]
         then
@@ -92,27 +101,3 @@ jobs:
     inputs:
       targetPath: '$(Build.StagingDirectory)/publish/bin/lldb-mi'
       artifactName: 'lldb-mi'
-
-# - job: SignFiles
-#   dependsOn: LLDB_MI
-#   pool:
-#     name: 'MicroBuildV2Pool'
-#   steps:
-#   - task: DownloadPipelineArtifact@2
-#     inputs:
-#       source: 'current'
-#       artifact: 'lldb-mi'
-#       path: '$(Pipeline.Workspace)/signing'
-
-#   - task: ms-vseng.MicroBuildTasks.7973a23b-33e3-4b00-a7d9-c06d90f8297f.MicroBuildSignMacFiles@1
-#     inputs:
-#       SigningTarget: '$(Pipeline.Workspace)/signing/lldb-mi.zip'
-#       SigningCert: '8003'
-#       SigningPluginSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
-#       SigningPluginVersion: 'latest'
-
-#   - task: PublishPipelineArtifact@1
-#     displayName: 'Publish LLDB-MI'
-#     inputs:
-#       targetPath: '$(Pipeline.Workspace)/signing/lldb-mi.zip'
-#       artifactName: 'lldb-mi-signed'
